@@ -1,0 +1,12 @@
+--allow-external PyXML
+--allow-unverified PyXML
+--allow-external ElementTree
+--allow-unverified ElementTree
+--allow-external cElementTree
+--allow-unverified cElementTree
+
+lxml
+cssselect
+adspygoogle==1.1.6
+SQLAlchemy>=0.9.4
+requests==2.2.1
