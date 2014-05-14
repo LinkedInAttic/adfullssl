@@ -142,6 +142,7 @@ The scanner saves the scan logs in the database.
 Table name     | Columns or content
 ---------------|-------------------------
 cretive        | 1. created date<br>2. updated date<br>3. creative id<br>4. creative type <small>(The creative type used in DFP)</small><br>5. preview url <small>(The URL to view the creative in an HTML page)</small><br>6. modification status <small>(True: modified, False unmodified)</small><br>7. snippet <small>(an HTML tag or URL to show ads)</small><br>8. modified snippet <small>(a snippet modified by AdFullSsl to make SSL compliant)</small><br>9. expanded snippet <small>(another snippet used in ThirdPartyCreative)</small><br>10. SSL compliance  <small>(True: compliant, False: non-compliant)</small><br>11. request match status  <small>(True: matched, False: mismatched)</small><br>12. uploaded status  <small>(True: uploaded, False: not uploaded)</small>
+creative_cache | 1. created date<br>2. updated date<br>3. creative id<br>4. creative type <small>(The creative type used in DFP)</small><br>5. preview url <small>(The URL to view the creative in an HTML page)</small><br>6. snippet <small>(an HTML tag or URL to show ads)</small><br>7. expanded snippet <small>(another snippet used in ThirdPartyCreative)</small>
 scanlog        | 1. created date<br>2. updated date<br>3. creative id<br>4. issue id <small>(See below&ast;)</small><br>5. requested URL <small>(The URL to which requests are made)</small><br>6. protocol <small>(`https` or `http`: the protocol used in the scanning process)</small>
 
 &ast;issue id is one of these; 0: no issue found, 1: invalid SSL certificate was found, 2: no SSL server was available, 3: HTTP request was made to the server that supports HTTPS, 4: 4xx client-side error found, 5: 5xx server-side error found, and 9: no external request was made.
@@ -183,4 +184,4 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
-The license information on third-party code is included in `third-party.txt`.
+The license information on third-party code is included in `NOTICE`.
