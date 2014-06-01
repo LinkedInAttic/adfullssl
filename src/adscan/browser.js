@@ -124,14 +124,7 @@ var browser = {};
           }
           synced = true;
         });
-        var sync = function() {
-          setTimeout(function() {
-            if(!synced) {
-              sync();
-            }
-          }, 500);
-        };
-        sync();
+        while(!synced);
       }
     }
     return found;
