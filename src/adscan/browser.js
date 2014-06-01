@@ -85,7 +85,7 @@ var browser = {};
    * @return {boolean} true if the `ip` represents an IP address in a private network.
    */
   var isPrivateIp = function(ip) {
-    return /^192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|10\./.test(ip);
+    return /^127\.0\.0\.1|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|10\./.test(ip);
   };
 
   /**
