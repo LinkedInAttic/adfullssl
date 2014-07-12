@@ -490,3 +490,13 @@ class TransformTestCase(unittest.TestCase):
     expect = '<a href="%c%u" target="_top"><img src="https://www.example.com/ads" border="0"></a>'
     actual = adscan.transform.replace_percent_h(snippet, html=preview_html)
     assert expect == actual, 'Expected\n%s\n\nBut was\n%s' % (expect, actual)
+
+  def test_replace_percent_h_no_change(self):
+    """
+    Test to not replace the %http://.
+    """
+    snippet = '<img src="%https://www.example.com">'
+    preview_html = '<img src="https://www.example.com">'
+    expect = '<img src="%https://www.example.com">'
+    actual = adscan.transform.replace_percent_h(snippet, html=preview_html)
+    assert expect == actual, 'Expected\n%s\n\nBut was\n%s' % (expect, actual)

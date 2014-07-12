@@ -345,10 +345,10 @@ def replace_percent_h(snippet, preview_url=None, html=None):
   :return: a snippet in which %%h is replaced with an actual domain.
   """
   # Regex for finding %h.
-  regex_percent_h = re.compile(r'%h', re.MULTILINE)
+  regex_percent_h = re.compile(r'%h(?!ttp)', re.MULTILINE)
 
   # Regex for finding strings next to %h.
-  regex_adjacent = re.compile(r'\%h([^\s\'\"\<\>]+)', re.MULTILINE)
+  regex_adjacent = re.compile(r'\%h(?!ttp)([^\s\'\"\<\>]+)', re.MULTILINE)
 
   # Regex for finding hosts.
   regex_host = re.compile(r'^http\:\/\/([\w\-\.\@\:]+)', re.IGNORECASE | re.MULTILINE)
