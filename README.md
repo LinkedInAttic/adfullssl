@@ -30,7 +30,7 @@ AdFullSsl supports creatives served by Google’s DoubleClick for Publishers (DF
 2. Install the installation tools for python. Please use the package manager installed on your environment:
     <pre>$ yum install python-pip</pre>
 3.  Install python packages:
-    <pre>$ pip install -r python/requirements.txt</pre>
+    <pre>$ pip install -r requirements.txt</pre>
 4.  Install a Flash-supported version of PhantomJS from [r3b/phantomjs]. Please make sure that the flash support works fine with the example script on [ryanbridges.org].
 5.  To configure authentication for DFP API, check out [googleads-python-legacy-lib] and run `adspygoogle/scripts/adspygoogle/dfp/config.py`. Two credential files `dfp_api_auth.pkl` and `dfp_api_config.pkl` will be created under your home directory.
 6.  Create your private key to use for SSL and public x509 certificate, and move them to `scanner/baseline/keys`. The name of private key should be `privatekey.pem` and that of public x509 certificate should be `certificate.pem`. This is an example command to create these keys.
