@@ -57,7 +57,8 @@ var browser = {};
     logFile: null,
     javascriptEnabled: true,
     hostedLocally: true,
-    cookieDir: null
+    cookieDir: null,
+    debug: false
   };
 
   var pageResources = null;
@@ -154,7 +155,7 @@ var browser = {};
 
       // Abort requests to private network if ads are not hosted locally
       // or ads are hosted locally but requests are made to inside of a private network.
-      if((!options.hostedLocally || requestData.id > 1) && isPrivateNetwork(requestData.url)) {
+      if(!options.debug && (!options.hostedLocally || requestData.id > 1) && isPrivateNetwork(requestData.url)) {
         networkRequest.abort();
       }
     };
@@ -252,6 +253,7 @@ var argIndex = 1;
  * @param {String} --log-file The location of log file.
  * @param {String} --url The URL to be scanned.
  * @param {String} --cookie-dir The directory where cookies are defined.
+ * @param {String} --debug Turn on the debug mode, which allows access to private network.
  */
  while(argIndex < system.args.length && system.args[argIndex].indexOf("--") === 0){
   var option = system.args[argIndex].substring(2);
@@ -279,6 +281,10 @@ var argIndex = 1;
   case "cookie-dir":
     argIndex++;
     options.cookie_dir = system.args[argIndex].replace(/^\"|\"$/g, '').replace(/^\'|\'$/g, '').trim();
+    break;
+  case "debug":
+    argIndex++;
+    options.debug = system.args[argIndex].trim() == 'true';
     break;
   }
   argIndex++;

@@ -124,6 +124,7 @@ class Scanner(object):
 
     self.workspace = None
     self.db_session = None
+    self.debug = False
 
   def _update_creatives(self, creative_ids, values):
     """
@@ -299,7 +300,7 @@ class Scanner(object):
       # Start browsers
       browsers = BrowserController(
         creatives, protocol, ports, self.browser_count, self.phantomjs, self.browserjs, self.cookie_dir,
-        self.workspace.dirname, self.scanlog, adscan.transform.create_scan_snippet)
+        self.workspace.dirname, self.scanlog, adscan.transform.create_scan_snippet, self.debug)
       browsers.start()
       browsers.wait()
     except KeyboardInterrupt:

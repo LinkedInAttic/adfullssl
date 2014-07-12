@@ -60,7 +60,7 @@ class BrowserHost(threading.Thread):
       issue_id = IssueType.NO_SSL_SERVER
     return issue_id
 
-  def __init__(self, creative_urls, protocol, phantomjs, browserjs, display_id, log_dir, cookie_dir, callback=None):
+  def __init__(self, creative_urls, protocol, phantomjs, browserjs, display_id, log_dir, cookie_dir, callback=None, debug=False):
     """
     Initialize the instance.
 
@@ -72,6 +72,7 @@ class BrowserHost(threading.Thread):
     :param log_dir: the directory into which the browser process saves the scan log.
     :param cookie_dir: the directory that contains cookies used by browsers while scanning.
     :param callback: the function called for passing the urls and issue ids found during this scanning process.
+    :param debug: Turn on the debug mode, which temporarily to allow access to private network that host test creatives.
     """
     threading.Thread.__init__(self)
     self.creative_urls = creative_urls
@@ -82,6 +83,7 @@ class BrowserHost(threading.Thread):
     self.log_dir = log_dir
     self.cookie_dir = cookie_dir
     self.callback = callback
+    self.debug = debug
     self.abort = False
 
   def _run_command(self, command):
@@ -162,6 +164,7 @@ class BrowserHost(threading.Thread):
     command.extend(['--hosted-locally', url_obj['hosted_locally']])
     command.extend(['--url', url_obj['url']])
     command.extend(['--log-file', log_file])
+    command.extend(['--debug', 'true' if self.debug else 'false'])
     if self.cookie_dir:
       command.extend(['--cookie-dir', self.cookie_dir])
     return command
@@ -207,7 +210,7 @@ class BrowserController(object):
     with open(dest_file, 'w') as fp:
       fp.write(html.encode('utf-8'))
 
-  def __init__(self, creatives, protocol, ports, browser_count, phantomjs, browserjs, cookie_dir, workspace, log_func, modify_func):
+  def __init__(self, creatives, protocol, ports, browser_count, phantomjs, browserjs, cookie_dir, workspace, log_func, modify_func, debug=False):
     """
     Initiate an instance.
 
@@ -221,6 +224,7 @@ class BrowserController(object):
     :param workspace: the directory where the html files and scan logs are saved.
     :param log_func: the function called for passing the urls and issue ids found during this scanning process.
     :param modify_func: the function called for modifying the creatives.
+    :param debug: Turn on the debug mode, which temporarily to allow access to private network that host test creatives.
     """
     self.creatives = creatives
     self.protocol = protocol
@@ -234,6 +238,7 @@ class BrowserController(object):
     self.modify_func = modify_func
     self.threads = []
     self.hostname = socket.gethostname()
+    self.debug = debug
 
   def _create_urls_to_scan(self, creatives, port):
     """
@@ -285,7 +290,7 @@ class BrowserController(object):
 
       url_dict = self._create_urls_to_scan(allotted_creatives, allotted_port)
       if len(url_dict) > 0:
-        thread = BrowserHost(url_dict, self.protocol, self.phantomjs, self.browserjs, display_id, log_dir, self.cookie_dir, self.log_func)
+        thread = BrowserHost(url_dict, self.protocol, self.phantomjs, self.browserjs, display_id, log_dir, self.cookie_dir, self.log_func, self.debug)
         thread.start()
         self.threads.append(thread)
         time.sleep(1)

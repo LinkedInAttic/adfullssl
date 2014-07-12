@@ -62,6 +62,9 @@ class BrowserTestCase(unittest.TestCase):
     self.scanner.creative_db = 'sqlite:///%s/creative.db' % self.scanner.log_dir
     self.scanner.max_scan = 1
 
+    # Turn on the debug mode to temporarily allow the private network.
+    self.scanner.debug = True
+
     self.scanner.setup_environment()
     self.copy_resources(self.scanner.workspace.dirname)
 
@@ -240,6 +243,9 @@ class BrowserTestCase(unittest.TestCase):
     creative_id = 11111
     snippet = '<img src="http://172.21.78.62/pixel.png">'
 
+    # Desable debug mode to check the private network access.
+    self.scanner.debug = False
+
     netlog = self._browse_creative(creative_id, snippet)
     path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
     path2 = r'http\:\/\/172\.21\.78\.62\/pixel\.png'
@@ -253,3 +259,6 @@ class BrowserTestCase(unittest.TestCase):
     assert re.match(path2, netlog['2']['request']['url'])
     assert netlog['2']['response']['status'] is None
     assert netlog['2']['error']['errorCode'] == 301  # ProtocolUnknownError
+
+    # Turn on the debug mode again for the next test case
+    self.scanner.debug = True
