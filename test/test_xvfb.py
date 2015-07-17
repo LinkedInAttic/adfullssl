@@ -27,7 +27,8 @@ class XvfbTestCase(unittest.TestCase):
     """
     num = 10
     dimensions = '1024x768x24'
-    xvfbs = XvfbController(num, dimensions)
+    xserver_offset = 200
+    xvfbs = XvfbController(num, dimensions, xserver_offset=xserver_offset)
     xvfbs.start()
 
     for process in xvfbs.processes:

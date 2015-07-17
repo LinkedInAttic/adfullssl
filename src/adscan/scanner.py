@@ -108,6 +108,7 @@ class Scanner(object):
     self.display_dimension = self.config.get(self.CONF_BROWSER, 'display_dimension')
     self.cookie_dir = self.config.get(self.CONF_BROWSER, 'cookie_dir')
     self.save_netlog = self.config.get(self.CONF_BROWSER, 'save_netlog')
+    self.xserver_offset = self.config.getint(self.CONF_BROWSER, 'xserver_offset')
 
     # Server
     self.server_count = self.config.getint(self.CONF_SERVER, 'server_count')
@@ -294,13 +295,14 @@ class Scanner(object):
       servers.start()
 
       # Start virtual X windows.
-      xvfbs = XvfbController(self.browser_count, self.display_dimension)
+      xvfbs = XvfbController(self.browser_count, self.display_dimension, xserver_offset=self.xserver_offset)
       xvfbs.start()
 
       # Start browsers
       browsers = BrowserController(
         creatives, protocol, ports, self.browser_count, self.phantomjs, self.browserjs, self.cookie_dir,
-        self.workspace.dirname, self.scanlog, adscan.transform.create_scan_snippet, self.debug)
+        self.workspace.dirname, self.scanlog, adscan.transform.create_scan_snippet, debug=self.debug,
+        xserver_offset=self.xserver_offset)
       browsers.start()
       browsers.wait()
     except KeyboardInterrupt:

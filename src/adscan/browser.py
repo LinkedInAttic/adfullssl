@@ -211,7 +211,7 @@ class BrowserController(object):
     with open(dest_file, 'w') as fp:
       fp.write(html.encode('utf-8'))
 
-  def __init__(self, creatives, protocol, ports, browser_count, phantomjs, browserjs, cookie_dir, workspace, log_func, modify_func, debug=False):
+  def __init__(self, creatives, protocol, ports, browser_count, phantomjs, browserjs, cookie_dir, workspace, log_func, modify_func, debug=False, xserver_offset=1):
     """
     Initiate an instance.
 
@@ -226,6 +226,7 @@ class BrowserController(object):
     :param log_func: the function called for passing the urls and issue ids found during this scanning process.
     :param modify_func: the function called for modifying the creatives.
     :param debug: Turn on the debug mode, which temporarily to allow access to private network that host test creatives.
+    :param xserver_offset: an offset number, from which we will reserve IDs of X servers.
     """
     self.creatives = creatives
     self.protocol = protocol
@@ -240,6 +241,7 @@ class BrowserController(object):
     self.threads = []
     self.hostname = socket.gethostname()
     self.debug = debug
+    self.xserver_offset = xserver_offset
 
   def _create_urls_to_scan(self, creatives, port):
     """
@@ -283,7 +285,7 @@ class BrowserController(object):
       allotment += 1
 
     for i in xrange(0, self.browser_count):
-      display_id = i + 1
+      display_id = self.xserver_offset + i + 1
       log_dir = '%s/%d' % (self.workspace, i)
 
       allotted_creatives = self.creatives[(i * allotment):((i + 1) * allotment)]
