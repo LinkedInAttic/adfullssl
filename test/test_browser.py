@@ -221,6 +221,9 @@ class BrowserTestCase(unittest.TestCase):
     creative_id = 11111
     snippet = '<img src="https://localhost:8888/pixel.png">'
 
+    # Desable debug mode to check the private network access.
+    self.scanner.debug = False
+
     netlog = self._browse_creative(creative_id, snippet)
     path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
     path2 = r'https\:\/\/localhost\:8888\/pixel\.png'
@@ -233,7 +236,10 @@ class BrowserTestCase(unittest.TestCase):
 
     assert re.match(path2, netlog['2']['request']['url'])
     assert netlog['2']['response']['status'] is None
-    assert netlog['2']['error']['errorCode'] == 1  # ConnectionRefusedError
+    assert netlog['2']['error']['errorCode'] == 301  # ProtocolUnknownError
+
+    # Turn on the debug mode again for the next test case
+    self.scanner.debug = True
 
   def test_browser_with_private_network_with_ip_url(self):
     """
