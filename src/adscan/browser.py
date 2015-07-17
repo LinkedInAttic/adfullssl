@@ -158,6 +158,7 @@ class BrowserHost(threading.Thread):
     command.extend(['--web-security', 'false'])
     command.extend(['--load-plugins', 'true'])
     command.extend(['--ignore-ssl-errors', 'true'])
+    command.extend(['--ssl-protocol', 'any'])  # Accept any ssl protocol, default only accepts SSLv3.
     command.append(self.browserjs)
     command.extend(['--use-cookie', 'true'])
     command.extend(['--enable-javascript', 'true'])
