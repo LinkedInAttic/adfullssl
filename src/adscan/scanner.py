@@ -61,7 +61,7 @@ setting False to the corresponding item in config.ini.
 import os.path
 import datetime
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 import adscan.db
 import adscan.dfp
@@ -176,17 +176,11 @@ class Scanner(object):
     table in the database.
     """
     report_job = adscan.dfp.create_report_service_job(self.days_ago, self.country)
-    data = adscan.dfp.run_report_service_job(report_job)
-    if data:
-      # Skip the header line. We only collect creative ids.
-      for row in data.split('\n')[1:]:
-
-        # Each row contains a pair of creative id and its impressions. They are delimited with a comma.
-        parts = row.split(',')
-        if len(parts) > 0 and parts[0]:
-          creative_id = parts[0]
-          creative = Creative(creative_id=creative_id, created_at=datetime.date.today())
-          self.db_session.merge(creative)
+    creative_ids = adscan.dfp.run_report_service_job(report_job)
+    if creative_ids:
+      for creative_id in creative_ids:
+        creative = Creative(creative_id=creative_id, created_at=datetime.date.today())
+        self.db_session.merge(creative)
       self.db_session.commit()
 
   def download_creatives(self):
@@ -219,7 +213,8 @@ class Scanner(object):
       dfp_creatives = adscan.dfp.run_creative_service_statements(stmts)
       updated = [adscan.transform.from_dfp(dfp) for dfp in dfp_creatives]
       for creative in updated:
-        creative_dict[str(creative.creative_id)].merge(creative)
+        if creative:
+          creative_dict[str(creative.creative_id)].merge(creative)
       print '%d recently updated creatives were downloaded.' % len(updated)
 
       updated_ids = [creative.creative_id for creative in updated]
@@ -231,9 +226,9 @@ class Scanner(object):
       caches = self.db_session.query(
         Creative
       ).from_statement(
-        'select c.* from %s c join '
+        text('select c.* from %s c join '
         '(select creative_id, max(created_at) as created_at from %s where creative_id in (%s) and snippet is not null group by creative_id) t '
-        'on c.creative_id = t.creative_id and c.created_at = t.created_at' % (Creative.__tablename__, Creative.__tablename__, ids)
+        'on c.creative_id = t.creative_id and c.created_at = t.created_at' % (Creative.__tablename__, Creative.__tablename__, ids))
       ).all()
 
       for cache in caches:
@@ -251,7 +246,8 @@ class Scanner(object):
       dfp_creatives = adscan.dfp.run_creative_service_statements(stmts)
       refetched = [adscan.transform.from_dfp(dfp) for dfp in dfp_creatives]
       for creative in refetched:
-        creative_dict[str(creative.creative_id)].merge(creative)
+        if creative:
+          creative_dict[str(creative.creative_id)].merge(creative)
       print '%d creative were downloaded.' % len(refetched)
 
     self.db_session.commit()

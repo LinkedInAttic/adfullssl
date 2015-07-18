@@ -16,6 +16,10 @@ import adscan.transform
 from adscan.model import Creative
 
 
+class EmptyObject(object):
+  pass
+
+
 class TransformTestCase(unittest.TestCase):
   """
   Test the transform module.
@@ -26,9 +30,9 @@ class TransformTestCase(unittest.TestCase):
     """
     Test the parameter in a DFP creative is used to store a modified snippet.
     """
-    dfp_creative = {'Creative_Type': creative_type}
+    dfp_creative = {'xsi_type': creative_type}
     creative = Creative(modified_snippet=modified_snippet)
-    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative)
+    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative, debug=True)
     assert modified_snippet == modified_dfp_creative[sink]
 
   @classmethod
@@ -38,10 +42,11 @@ class TransformTestCase(unittest.TestCase):
     """
     Test the from_dfp method.
     """
-    dfp_creative = {}
-    dfp_creative['id'] = 11111
-    dfp_creative['previewUrl'] = 'http://example.com'
-    dfp_creative['Creative_Type'] = creative_type
+    dfp_creative = {
+      'id': 11111,
+      'previewUrl': 'http://example.com',
+      'xsi_type': creative_type
+    }
 
     if snippet_field2:
       dfp_creative[snippet_field] = {}
@@ -52,7 +57,7 @@ class TransformTestCase(unittest.TestCase):
     if expanded_snippet:
       dfp_creative['expandedSnippet'] = expanded_snippet
 
-    creative = adscan.transform.from_dfp(dfp_creative)
+    creative = adscan.transform.from_dfp(dfp_creative, debug=True)
 
     assert creative.snippet == snippet
     assert creative.modified_snippet == modified_snippet
@@ -134,12 +139,12 @@ class TransformTestCase(unittest.TestCase):
     Test that a modified creative should inserted into primaryImageAsset.assetUrl for ImageCreative.
     """
     dfp_creative = {
-      'Creative_Type': 'ImageCreative',
+      'xsi_type': 'ImageCreative',
       'primaryImageAsset': {}
     }
     modified_snippet = '<x>test</x>'
     creative = Creative(modified_snippet=modified_snippet)
-    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative)
+    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative, debug=True)
     assert modified_snippet == modified_dfp_creative['primaryImageAsset']['assetUrl']
 
   def test_to_dfp_for_image_redirect_creative(self):
@@ -170,27 +175,33 @@ class TransformTestCase(unittest.TestCase):
     """
     Test that a modified creative should inserted into a value of creativeTemplateVariableValues parameter for TemplateCreative.
     """
+    stringVariable = EmptyObject()
+    stringVariable.defaultValue = 'http://www.example.com/ads'
     dfp_creative = {
-      'Creative_Type': 'TemplateCreative',
-      'creativeTemplateVariableValues': [{'value': 'http://www.example.com/ads'}]
+      'xsi_type': 'TemplateCreative',
+      'creativeTemplateVariableValues': [stringVariable]
     }
     modified_snippet = '<img src="https://www.example.com/ads">'
     creative = Creative(modified_snippet=modified_snippet)
-    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative)
-    assert 'https://www.example.com/ads' == modified_dfp_creative['creativeTemplateVariableValues'][0]['value']
+    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative, debug=True)
+    assert 'https://www.example.com/ads' == modified_dfp_creative['creativeTemplateVariableValues'][0].defaultValue
 
   def test_to_dfp_for_template_creative_with_unmodified_url(self):
     """
     Test that a modified creative should inserted into a value of creativeTemplateVariableValues parameter for TemplateCreative.
     """
+    stringVariable1 = EmptyObject()
+    stringVariable1.defaultValue = 'http://www.example.com/ads'
+    stringVariable2 = EmptyObject()
+    stringVariable2.defaultValue = 'http://www.example.net/ads'
     dfp_creative = {
-      'Creative_Type': 'TemplateCreative',
-      'creativeTemplateVariableValues': [{'value': 'http://www.example.com/ads'}, {'value': 'http://www.example.net/ads'}]
+      'xsi_type': 'TemplateCreative',
+      'creativeTemplateVariableValues': [stringVariable1, stringVariable2]
     }
     creative = Creative(modified_snippet='<img src="https://www.example.com/ads">')
-    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative)
-    assert 'https://www.example.com/ads' == modified_dfp_creative['creativeTemplateVariableValues'][0]['value']
-    assert 'http://www.example.net/ads' == modified_dfp_creative['creativeTemplateVariableValues'][1]['value']
+    modified_dfp_creative = adscan.transform.to_dfp(creative, dfp_creative, debug=True)
+    assert 'https://www.example.com/ads' == modified_dfp_creative['creativeTemplateVariableValues'][0].defaultValue
+    assert 'http://www.example.net/ads' == modified_dfp_creative['creativeTemplateVariableValues'][1].defaultValue
 
   def test_from_dfp_adexchange_creative(self):
     """
@@ -454,10 +465,12 @@ class TransformTestCase(unittest.TestCase):
     """
     snippet = '<a href="http://www.example.net">a</a><img src="http://www.example.com/ads"><script>document.write(\'<img src="http://www.example.net/ads">\')</script>'
     expect = '<a href="http://www.example.net">a</a><img src="https://www.example.com/ads"><script>document.write(\'<img src="http://www.example.net/ads">\')</script>'
-    base_values = [
-      {'uniqueName': 'x', 'value': 'y', 'BaseCreativeTemplateVariableValue_Type': 'StringCreativeTemplateVariableValue'},
-      {'uniqueName': 'z', 'value': 'http://www.example.com/ads', 'BaseCreativeTemplateVariableValue_Type': 'UrlCreativeTemplateVariableValue'}
-    ]
+    # Create dummy objects with a dictionary.
+    base_value1 = EmptyObject()
+    base_value1.defaultValue = 'x'
+    base_value2 = EmptyObject()
+    base_value2.defaultValue = 'http://www.example.com/ads'
+    base_values = [base_value1, base_value2]
     actual = adscan.transform.modify_snippet(snippet, base_values=base_values)
     assert expect == actual, 'Expected\n%s\n\nBut was\n%s' % (expect, actual)
 

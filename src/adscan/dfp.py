@@ -22,17 +22,16 @@ import os
 import sys
 import time
 import datetime
+import tempfile
+import gzip
 
-from adspygoogle import DfpClient
-from adspygoogle.dfp import DfpUtils
+import googleads.dfp
+import googleads.errors
 
-# The number of items downloaded from DFP.
-FETCH_LIMIT = 500
 
-DFP_VERSION = 'v201308'
+DFP_VERSION = 'v201505'
 
-sys.path.insert(0, os.path.join('..', '..', '..', '..', '..'))
-CLIENT = DfpClient(path=os.path.join('..', '..', '..', '..', '..'))
+CLIENT = googleads.dfp.DfpClient.LoadFromStorage()
 
 
 def create_report_service_job(days_ago=2, country=None):
@@ -70,20 +69,28 @@ def create_report_service_job(days_ago=2, country=None):
 
 def run_report_service_job(report_job):
   """
-  Run the report job and return the csv dump.
+  Run the report job and return a list of creative ids.
 
   :param report_job: a report job.
-  :return: a csv dump of the downloaded data.
+  :return: a list of creative ids.
   """
-  report_service = CLIENT.GetService('ReportService', version=DFP_VERSION)
-  job = report_service.RunReportJob(report_job)[0]
+  data_downloader = CLIENT.GetDataDownloader(version=DFP_VERSION)
+  try:
+    report_job_id = data_downloader.WaitForReport(report_job)
+  except googleads.errors.DfpReportError, e:
+    print 'Failed to generate report. [Error] %s' % e
+    raise e
+  report_file = tempfile.NamedTemporaryFile(suffix='.csv.gz', delete=False)
+  data_downloader.DownloadReportToFile(report_job_id, 'CSV_DUMP', report_file)
+  report_file.close()
 
-  status = job['reportJobStatus']
-  while status != 'COMPLETED' and status != 'FAILED':
-    time.sleep(30)
-    status = report_service.GetReportJob(job['id'])[0]['reportJobStatus']
+  report = gzip.open(report_file.name)
+  ids = [r.split(',')[0] for r in report]
+  report.close()
 
-  return DfpUtils.DownloadReport(job['id'], 'CSV_DUMP', report_service) if status != 'FAILED' else None
+  os.remove(report_file.name)
+  # Ignore the first line, which contains this line "Dimension.CREATIVE_ID,Column.AD_SERVER_IMPRESSIONS"
+  return ids[1:]
 
 
 def create_creative_service_statement(creative_ids, offset=0, only_new=True, days_ago=2):
@@ -111,14 +118,14 @@ def create_creative_service_statement(creative_ids, offset=0, only_new=True, day
     })
     print 'Only recently updated creatives will be downloaded.'
   else:
-    print 'At most, %d creatives will be downloaded.' % (len(creative_ids))
+    print 'At most, %d creatives will be downloaded.' % len(creative_ids)
 
   id_str = ','.join(str(i) for i in creative_ids)
 
   statements = []
-  for offset in range(offset, len(creative_ids), FETCH_LIMIT):
+  for offset in range(offset, len(creative_ids), googleads.dfp.SUGGESTED_PAGE_LIMIT):
     statements.append({
-      'query': 'WHERE %s id IN (%s) LIMIT %d OFFSET %d' % (date_setting, id_str, FETCH_LIMIT, offset),
+      'query': 'WHERE %s id IN (%s) LIMIT %d OFFSET %d' % (date_setting, id_str, googleads.dfp.SUGGESTED_PAGE_LIMIT, offset),
       'values': values
     })
   return statements
@@ -137,7 +144,7 @@ def run_creative_service_statements(statements):
 
   creatives = []
   for stmt in statements:
-    response = creative_service.GetCreativesByStatement(stmt)[0]
+    response = creative_service.getCreativesByStatement(stmt)
     results = response['results'] if 'results' in response else []
 
     print 'Fetched data size: %d.' % len(results)
@@ -157,4 +164,4 @@ def upload_creatives(dfp_creatives):
   :return: a list of updated creatives.
   """
   creative_service = CLIENT.GetService('CreativeService', version=DFP_VERSION)
-  return creative_service.UpdateCreatives(dfp_creatives)
+  return creative_service.updateCreatives(dfp_creatives)
