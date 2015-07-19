@@ -125,9 +125,7 @@ class BrowserHost(threading.Thread):
         except ValueError:
           continue
 
-        # When the request is aborted, PhantomJS will set 1 (Connection Refused Error) for the error code.
-        # When IP address is used, PhantomJS will set 301 (Protocol Unknown Error) for the error code.
-        if data[key]['error'] and data[key]['error']['errorCode'] and data[key]['error']['errorCode'] in [1, 301]:
+        if data[key]['error'] and data[key]['error']['errorCode'] and data[key]['error']['errorCode'] == 999:
           issue_id = IssueType.PRIVATE_NETWORK
         else:
           url = data[key]['request']['url']

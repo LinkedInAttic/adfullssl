@@ -15,6 +15,7 @@ import os.path
 import socket
 import unittest
 from ConfigParser import SafeConfigParser
+import requests
 
 import adscan.net
 from adscan.server import Server
@@ -52,4 +53,8 @@ class ServerTestCase(unittest.TestCase):
     server.start()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.assertRaises(socket.error, sock.bind, ('', ports[0]))
+
+    requests.packages.urllib3.disable_warnings()
+    r = requests.get('https://localhost:%d/iplookup' % ports[0], params={'url': 'http://localhost'}, verify=False)
+    assert r.text == '{"ip":"127.0.0.1"}'
     server.shutdown()

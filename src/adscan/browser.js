@@ -156,6 +156,12 @@ var browser = {};
       // Abort requests to private network if ads are not hosted locally
       // or ads are hosted locally but requests are made to inside of a private network.
       if(!options.debug && (!options.hostedLocally || requestData.id > 1) && isPrivateNetwork(requestData.url)) {
+        page.resources[requestData.url].error = {
+          id: requestData.id,
+          url: requestData.url,
+          errorCode: 999,
+          errorString: 'Access to private network'
+        };
         networkRequest.abort();
       }
     };

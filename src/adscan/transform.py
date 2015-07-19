@@ -447,6 +447,6 @@ def download_html(url):
   :param url: the url.
   :return: the downloaded html.
   """
-  r = requests.get(url)
+  r = requests.get(url, verify=False)
   return r.text
 
