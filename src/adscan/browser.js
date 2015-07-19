@@ -18,8 +18,7 @@
 
 var fs = require('fs'),
     webpage = require('webpage'),
-    system = require('system'),
-    childProcess = require('child_process');
+    system = require('system');
 
 var browser = {};
 
@@ -42,12 +41,12 @@ var browser = {};
   /**
    * Timeout to exit the browser after making no requests.
    */
-  var IDLE_TIMEOUT = 10000;
+  var IDLE_TIMEOUT = 5000;
 
   /**
    * Timeout to end the connection to a request.
    */
-  var REQUEST_TIMEOUT = 10000;
+  var REQUEST_TIMEOUT = 3000;
 
   var exitTimeoutHandle = null;
 
@@ -58,25 +57,34 @@ var browser = {};
     javascriptEnabled: true,
     hostedLocally: true,
     cookieDir: null,
-    debug: false
+    debug: false,
+    ipLookupUrl: null
   };
 
   var pageResources = null;
 
-  /**
-   * Call the callback function after the idle timeout.
-   *
-   * @param {Function} callback The function to be called after the idle timeout.
-   */
-  var resetExitTimeoutHandle = function(callback) {
+ /**
+  * Call the callback function after the idle timeout.
+  *
+  * @param {Function} callback The function to be called after the idle timeout.
+  */
+  var resetExitTimeoutHandle = function(callback, timeout) {
+
     clearTimeout(exitTimeoutHandle);
+
+    var timeoutStartDate = new Date();
+    var _timeout = timeout != null ? timeout : IDLE_TIMEOUT;
+
     exitTimeoutHandle = setTimeout(function() {
-      if(callback) {
+      var remainingTime = _timeout - (new Date().getTime() - timeoutStartDate.getTime());
+      if(remainingTime > 0 ) {
+        resetExitTimeoutHandle(callback, remainingTime);
+      } else if(callback) {
         setTimeout(callback, 0);
       } else {
         exit();
       }
-    }, IDLE_TIMEOUT);
+    }, _timeout);
   };
 
   /**
@@ -96,39 +104,22 @@ var browser = {};
    * @return {boolean} true if the `url` represents a location inside of a private network.
    */
   var isPrivateNetwork = function(url) {
-    var found = false;
-    var hostMatch = url.match(/^https?\:\/\/([\w\.\-\_\@]+)/);
+    var ip = undefined;
 
-    if(hostMatch) {
-      var host = hostMatch[1];
-
-      // Invoke callback if the host is an IP address.
-      if(/^\d+\.\d+\.\d+\.\d+$/.test(host) && isPrivateIp(host)) {
-        found = true;
-      } else {
-        // Call `host` command and extract IP addresses.
-        var synced = false;
-        var child = childProcess.spawn('host', [host]);
-        child.stdout.on('data', function (data) {
-          if(data) {
-            var lines = data.split('\n');
-            for(var i = 0; i < lines.length; i++) {
-              var ipMatch = lines[i].match(/has\saddress\s(\d+\.\d+\.\d+\.\d+)/);
-              if(ipMatch) {
-                var ip = ipMatch[1];
-                if(isPrivateIp(ip)) {
-                  found = true;
-                  break;
-                }
-              }
-            }
-          }
-          synced = true;
-        });
-        while(!synced);
-      }
+    if(options.ipLookupUrl) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', options.ipLookupUrl + '?url=' + encodeURIComponent(url), false);
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+          try {
+            var json = JSON.parse(xhr.responseText);
+            ip = json.ip;
+          } catch(err) {}
+        }
+      };
+      xhr.send(null);
     }
-    return found;
+    return ip && isPrivateIp(ip);
   };
 
   /**
@@ -145,9 +136,9 @@ var browser = {};
     page.settings.javascriptEnabled = options.javascriptEnabled;
     page.settings.resourceTimeout = REQUEST_TIMEOUT;
 
-    page.onResourceRequested = function (requestData, networkRequest) {
+    page.onResourceRequested = function(requestData, networkRequest) {
       resetExitTimeoutHandle(callback);
-      page.resources[requestData.id] = {
+      page.resources[requestData.url] = {
         request: requestData,
         response: null,
         error: null
@@ -155,22 +146,28 @@ var browser = {};
 
       // Abort requests to private network if ads are not hosted locally
       // or ads are hosted locally but requests are made to inside of a private network.
-      if(!options.debug && (!options.hostedLocally || requestData.id > 1) && isPrivateNetwork(requestData.url)) {
+      if(!options.debug && (!options.hostedLocally || Object.keys(page.resources).length > 1) && isPrivateNetwork(requestData.url)) {
+        page.resources[requestData.url].error = {
+          id: requestData.id,
+          url: requestData.url,
+          errorCode: 999,
+          errorString: 'Access to private network'
+        };
         networkRequest.abort();
       }
     };
 
-    page.onResourceReceived = function (response) {
+    page.onResourceReceived = function(response) {
       resetExitTimeoutHandle(callback);
-      if(response.stage === 'end') {
-        page.resources[response.id].response = response;
+      if(response.stage === 'end' && page.resources[response.url]) {
+        page.resources[response.url].response = response;
       }
     };
 
     page.onResourceError = function(resourceError) {
       resetExitTimeoutHandle(callback);
-      if(page.resources[resourceError.id]) {
-        page.resources[resourceError.id].error = resourceError;
+     if(page.resources[resourceError.url] && !page.resources[resourceError.url].error) {
+        page.resources[resourceError.url].error = resourceError;
       }
     };
   };
@@ -254,6 +251,7 @@ var argIndex = 1;
  * @param {String} --url The URL to be scanned.
  * @param {String} --cookie-dir The directory where cookies are defined.
  * @param {String} --debug Turn on the debug mode, which allows access to private network.
+ * @param {String} --iplookup-url Url for iplookup service.
  */
  while(argIndex < system.args.length && system.args[argIndex].indexOf("--") === 0){
   var option = system.args[argIndex].substring(2);
@@ -285,6 +283,10 @@ var argIndex = 1;
   case "debug":
     argIndex++;
     options.debug = system.args[argIndex].trim() == 'true';
+    break;
+  case "iplookup-url":
+    argIndex++;
+    options.ipLookupUrl = system.args[argIndex].replace(/^\"|\"$/g, '').replace(/^\'|\'$/g, '').trim();
     break;
   }
   argIndex++;

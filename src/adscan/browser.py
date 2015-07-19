@@ -125,9 +125,7 @@ class BrowserHost(threading.Thread):
         except ValueError:
           continue
 
-        # When the request is aborted, PhantomJS will set 1 (Connection Refused Error) for the error code.
-        # When IP address is used, PhantomJS will set 301 (Protocol Unknown Error) for the error code.
-        if data[key]['error'] and data[key]['error']['errorCode'] and data[key]['error']['errorCode'] in [1, 301]:
+        if data[key]['error'] and data[key]['error']['errorCode'] and data[key]['error']['errorCode'] == 999:
           issue_id = IssueType.PRIVATE_NETWORK
         else:
           url = data[key]['request']['url']
@@ -158,6 +156,7 @@ class BrowserHost(threading.Thread):
     command.extend(['--web-security', 'false'])
     command.extend(['--load-plugins', 'true'])
     command.extend(['--ignore-ssl-errors', 'true'])
+    command.extend(['--ssl-protocol', 'any'])  # Accept any ssl protocol, default only accepts SSLv3.
     command.append(self.browserjs)
     command.extend(['--use-cookie', 'true'])
     command.extend(['--enable-javascript', 'true'])
@@ -165,6 +164,7 @@ class BrowserHost(threading.Thread):
     command.extend(['--url', url_obj['url']])
     command.extend(['--log-file', log_file])
     command.extend(['--debug', 'true' if self.debug else 'false'])
+    command.extend(['--iplookup-url', url_obj['iplookup_url']])
     if self.cookie_dir:
       command.extend(['--cookie-dir', self.cookie_dir])
     return command
@@ -210,7 +210,7 @@ class BrowserController(object):
     with open(dest_file, 'w') as fp:
       fp.write(html.encode('utf-8'))
 
-  def __init__(self, creatives, protocol, ports, browser_count, phantomjs, browserjs, cookie_dir, workspace, log_func, modify_func, debug=False):
+  def __init__(self, creatives, protocol, ports, browser_count, phantomjs, browserjs, cookie_dir, workspace, log_func, modify_func, debug=False, xserver_offset=1):
     """
     Initiate an instance.
 
@@ -225,6 +225,7 @@ class BrowserController(object):
     :param log_func: the function called for passing the urls and issue ids found during this scanning process.
     :param modify_func: the function called for modifying the creatives.
     :param debug: Turn on the debug mode, which temporarily to allow access to private network that host test creatives.
+    :param xserver_offset: an offset number, from which we will reserve IDs of X servers.
     """
     self.creatives = creatives
     self.protocol = protocol
@@ -239,6 +240,7 @@ class BrowserController(object):
     self.threads = []
     self.hostname = socket.gethostname()
     self.debug = debug
+    self.xserver_offset = xserver_offset
 
   def _create_urls_to_scan(self, creatives, port):
     """
@@ -267,6 +269,7 @@ class BrowserController(object):
             'url': '%s://%s:%d/%s' % (self.protocol, self.hostname, port, save_file),
             'hosted_locally': 'true'
           }
+        url_obj['iplookup_url'] = '%s://%s:%d/iplookup' % (self.protocol, self.hostname, port)
         url_dict[str(creative.creative_id)] = url_obj
     return url_dict
 
@@ -282,7 +285,7 @@ class BrowserController(object):
       allotment += 1
 
     for i in xrange(0, self.browser_count):
-      display_id = i + 1
+      display_id = self.xserver_offset + i + 1
       log_dir = '%s/%d' % (self.workspace, i)
 
       allotted_creatives = self.creatives[(i * allotment):((i + 1) * allotment)]

@@ -14,6 +14,7 @@ import datetime
 import unittest
 
 import adscan.dfp
+import googleads.dfp
 
 
 class DfpTestCase(unittest.TestCase):
@@ -52,8 +53,8 @@ class DfpTestCase(unittest.TestCase):
     """
     statements = adscan.dfp.create_creative_service_statement(creative_ids, offset=offset, only_new=only_new, days_ago=days_ago)
 
-    expect_len = len(creative_ids) / adscan.dfp.FETCH_LIMIT
-    if len(creative_ids) % adscan.dfp.FETCH_LIMIT != 0:
+    expect_len = len(creative_ids) / googleads.dfp.SUGGESTED_PAGE_LIMIT
+    if len(creative_ids) % googleads.dfp.SUGGESTED_PAGE_LIMIT != 0:
       expect_len += 1
 
     assert len(statements) == expect_len
@@ -65,7 +66,7 @@ class DfpTestCase(unittest.TestCase):
         date_setting = 'lastModifiedDateTime > :date AND'
       id_str = ','.join(str(i) for i in creative_ids)
 
-      assert stmt['query'] == 'WHERE %s id IN (%s) LIMIT %d OFFSET %d' % (date_setting, id_str, adscan.dfp.FETCH_LIMIT, adscan.dfp.FETCH_LIMIT * i)
+      assert stmt['query'] == 'WHERE %s id IN (%s) LIMIT %d OFFSET %d' % (date_setting, id_str, googleads.dfp.SUGGESTED_PAGE_LIMIT, googleads.dfp.SUGGESTED_PAGE_LIMIT * i)
 
   def test_create_report_service_job(self):
     """

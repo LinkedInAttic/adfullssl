@@ -22,16 +22,18 @@ class XvfbController(object):
   Class that controls xvfb (virtual X window system).
   """
 
-  def __init__(self, num, dimensions):
+  def __init__(self, num, dimensions, xserver_offset=1):
     """
     Initiate an instance.
 
     :param num: the number of xvfb to be launched.
     :param dimensions: the display dimensions.
+    :param xserver_offset: an offset number, from which we will reserve IDs of X servers.
     """
     self.num = num
     self.dimensions = dimensions
     self.processes = []
+    self.xserver_offset = xserver_offset
 
   def start(self):
     """
@@ -39,7 +41,7 @@ class XvfbController(object):
     by the X window system.
     """
     for i in xrange(1, self.num + 1):
-      command = ['Xvfb', ':%d -screen 0 %s' % (i, self.dimensions)]
+      command = ['Xvfb', ':%d -screen 0 %s' % (self.xserver_offset + i, self.dimensions)]
       process = subprocess.Popen(command, shell=False)
       self.processes.append(process)
 

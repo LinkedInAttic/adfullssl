@@ -19,12 +19,14 @@ import lxml
 import lxml.etree
 import lxml.html
 import lxml.cssselect
-import urllib2
+import requests
+
+import googleads.dfp
 
 from adscan.model import Creative
 
 
-def to_dfp(creative, dfp_creative):
+def to_dfp(creative, dfp_creative, debug=False):
   """
   Convert an instance of :class:`~model.Creative` into an object used in DFP.
 
@@ -34,7 +36,7 @@ def to_dfp(creative, dfp_creative):
   """
   m_snippet = creative.modified_snippet
   dfp = dfp_creative
-  ctype = dfp['Creative_Type']
+  ctype = dfp['xsi_type'] if debug else googleads.dfp.DfpClassType(dfp_creative)
 
   if ctype == 'ThirdPartyCreative':
     dfp['snippet'] = m_snippet
@@ -56,27 +58,23 @@ def to_dfp(creative, dfp_creative):
     dfp['thirdPartyImpressionUrl'] = m_snippet
   elif ctype == 'TemplateCreative':
     if 'creativeTemplateVariableValues' in dfp:
-      for value_map in dfp['creativeTemplateVariableValues']:
-        if not value_map:
-          continue
-        for key, value in value_map.iteritems():
-          if type(value) != str:
-            continue
+      for v in dfp['creativeTemplateVariableValues']:
+        if v.__class__.__name__ == 'StringCreativeTemplateVariable' or debug:
           regex_url = re.compile(r'^http\:((\/\/[^\/]*).*)$', re.IGNORECASE)
-          match = regex_url.match(value)
+          match = regex_url.match(v.defaultValue)
           if match:
             url = match.group(1)
             host = match.group(2)
-            regex_secure_url = r'(\'|\")(https\:)?%s' % re.escape(host)
+            regex_secure_url = r'(\'|\")(https\:)?' + re.escape(host)
             if re.search(regex_secure_url, m_snippet, re.IGNORECASE):
-              value_map[key] = 'https:%s' % url
+              v.defaultValue = 'https:' + url
   else:
     # not supported
     dfp = None
   return dfp
 
 
-def from_dfp(dfp_creative):
+def from_dfp(dfp_creative, debug=False):
   """
   Convert a creative object downloaded from DFP into an instance of
   :class:`~model.Creative`.
@@ -84,9 +82,12 @@ def from_dfp(dfp_creative):
   :param dfp_creative: a creative object downloaded from DFP.
   :return: an instance of :class:`~model.Creative`.
   """
+  if not dfp_creative or 'previewUrl' not in dfp_creative:
+    return
+
   dfp = dfp_creative
   creative_id = dfp['id']
-  creative_type = dfp['Creative_Type']
+  creative_type = dfp['xsi_type'] if debug else googleads.dfp.DfpClassType(dfp_creative)
   preview_url = dfp['previewUrl']
   modified = False
   snippet = None
@@ -102,7 +103,7 @@ def from_dfp(dfp_creative):
   elif creative_type == 'CustomCreative':
     snippet, m_snippet = get_snippet(dfp['htmlSnippet'])
   elif creative_type == 'FlashCreative':
-    snippet = download_html(re.sub(r'^http\:', r'https:', dfp['previewUrl']))
+    snippet = download_html(re.sub(r'^http\:', r'https:', preview_url))
     m_snippet = snippet
   elif creative_type == 'ImageCreative':
     snippet, m_snippet = get_snippet(dfp['primaryImageAsset']['assetUrl'])
@@ -116,7 +117,10 @@ def from_dfp(dfp_creative):
     snippet, m_snippet = get_snippet(dfp['thirdPartyImpressionUrl'])
   elif creative_type == 'TemplateCreative':
     snippet = download_html(re.sub(r'^http\:', r'https:', preview_url))
-    base_values = (dfp['creativeTemplateVariableValues'] if 'creativeTemplateVariableValues' in dfp else None)
+    base_values = []
+    if 'creativeTemplateVariableValues' in dfp:
+      # Only StringCreativeTemplateVariable can contain string values; meaning url can be stored.
+      base_values = [v for v in dfp['creativeTemplateVariableValues'] if v.__class__.__name__ == 'StringCreativeTemplateVariable']
     m_snippet = modify_snippet(snippet, base_values=base_values)
 
   if snippet:
@@ -189,6 +193,10 @@ def get_snippet(snippet, base_snippet=None):
   :param base_snippet: an editable snippet, which is only used when `snippet` is not editable.
   :return: a pair of snippet and modified snippet.
   """
+  # Workaround for a bug in suds.sax.text.Text https://bugs.launchpad.net/ubuntu/+source/suds/+bug/1100758
+  if snippet.__class__.__module__ == "suds.sax.text" and snippet.__class__.__name__ == "Text":
+    snippet = snippet.__repr__()
+
   regex_http = re.compile(r'^http', re.IGNORECASE)
   regex_url = re.compile(r'^http\:\/\/([\w\-\.\@\:]+)', re.IGNORECASE | re.MULTILINE)
 
@@ -257,7 +265,7 @@ def modify_snippet_for_attr(snippet, url, base_snippet=None, base_values=None):
     host = match.group(2)
 
     in_snippet = exist_in_snippet(host, base_snippet)
-    in_values = exist_in_dictionary(host, base_values)
+    in_values = exist_in_string_creative_template_variables(host, base_values)
 
     if in_values:
       replacement = 'https:%s' % replacement
@@ -324,7 +332,7 @@ def modify_snippet_for_elembody(snippet, content, base_snippet=None, base_values
       modify = True
 
     in_snippet = exist_in_snippet(host, base_snippet)
-    in_values = exist_in_dictionary(host, base_values)
+    in_values = exist_in_string_creative_template_variables(host, base_values)
 
     if in_values:
       replacement = 'https:%s' % replacement
@@ -356,8 +364,7 @@ def replace_percent_h(snippet, preview_url=None, html=None):
   # Regex for finding urls specified in %s.
   regex_url = r'((?:https?\:)?\/\/[^\s\'\"\<\>]+%s)'
 
-  if regex_percent_h.search(snippet):
-
+  if snippet and regex_percent_h.search(snippet):
     if not html:
       html = download_html(preview_url)
     replaced_snippet = snippet
@@ -393,20 +400,19 @@ def exist_in_snippet(host, snippet):
   return snippet and regex.search(snippet)
 
 
-def exist_in_dictionary(host, dictionary):
+def exist_in_string_creative_template_variables(host, variables):
   """
-  Check if the host name appears in the dictionary.
+  Check if the host name appears in any of instances of StringCreativeTemplateVariable.
 
   :param host: a host name.
-  :param dictionary: a dictionary.
-  :return: a boolean that indicates whether the `host` exists in the `dictionary`.
+  :param variables: a list of instances of StringCreativeTemplateVariable.
+  :return: a boolean that indicates whether the `host` exists in the `variables`.
   """
-  if dictionary:
+  if variables:
     regex = re.compile(re.escape(r'http://%s' % host), re.IGNORECASE)
-    for value_dict in dictionary:
-      for key, value in value_dict.iteritems():
-        if type(value) == str and regex.match(value):
-          return True
+    for v in variables:
+      if regex.match(v.defaultValue):
+        return True
   return False
 
 
@@ -441,7 +447,6 @@ def download_html(url):
   :param url: the url.
   :return: the downloaded html.
   """
-  response = urllib2.urlopen(url)
-  html = response.read()
-  response.close()
-  return html
+  r = requests.get(url, verify=False)
+  return r.text
+

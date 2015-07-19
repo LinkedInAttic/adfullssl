@@ -112,20 +112,16 @@ class BrowserTestCase(unittest.TestCase):
     """
     creative_id = 11111
     snippet = '<img src="pixel.png">'
-
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
-    path2 = r'https\:\/\/%s\:\d+\/%s\/pixel\.png' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname))
 
     assert netlog
     assert len(netlog) == 2
-    assert re.match(path1, netlog['1']['request']['url'])
-    assert netlog['1']['response']['status'] == 200
-    self.assertFalse(netlog['1']['error'])
-
-    assert re.match(path2, netlog['2']['request']['url'])
-    assert netlog['2']['response']['status'] == 200
-    self.assertFalse(netlog['2']['error'])
+    for url, value in netlog.iteritems():
+      if url.endswith(str(creative_id) + '.html') or url.endswith('pixel.png'):
+        assert value['response']['status'] == 200
+        self.assertFalse(value['error'])
+      else:
+        self.fail()
 
   def test_browser_with_error_code(self):
     """
@@ -133,20 +129,19 @@ class BrowserTestCase(unittest.TestCase):
     """
     creative_id = 11111
     snippet = '<img src="notfound.png">'
-
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
-    path2 = r'https\:\/\/%s\:\d+\/%s\/notfound\.png' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname))
 
     assert netlog
     assert len(netlog) == 2
-    assert re.match(path1, netlog['1']['request']['url'])
-    assert netlog['1']['response']['status'] == 200
-    self.assertFalse(netlog['1']['error'])
-
-    assert re.match(path2, netlog['2']['request']['url'])
-    assert netlog['2']['response']['status'] == 404
-    assert netlog['2']['error']['errorCode'] == 203
+    for url, value in netlog.iteritems():
+      if url.endswith(str(creative_id) + '.html'):
+        assert value['response']['status'] == 200
+        self.assertFalse(value['error'])
+      elif url.endswith('notfound.png'):
+        assert value['response']['status'] == 404
+        assert value['error']['errorCode'] == 203
+      else:
+        self.fail()
 
   def test_browser_with_no_external_request(self):
     """
@@ -154,15 +149,16 @@ class BrowserTestCase(unittest.TestCase):
     """
     creative_id = 11111
     snippet = '<b>text</b>'
-
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
 
     assert netlog
     assert len(netlog) == 1
-    assert re.match(path1, netlog['1']['request']['url'])
-    assert netlog['1']['response']['status'] == 200
-    self.assertFalse(netlog['1']['error'])
+    for url, value in netlog.iteritems():
+      if url.endswith(str(creative_id) + '.html'):
+        assert value['response']['status'] == 200
+        self.assertFalse(value['error'])
+      else:
+        self.fail()
 
   def test_browser_with_requests_made_by_flash(self):
     """
@@ -179,25 +175,16 @@ class BrowserTestCase(unittest.TestCase):
               " <embed src='%s' quality='high' bgcolor='#ffffff' width='300' height='250' " \
               " type='application/x-shockwave-flash' pluginpage='http://www.macromedia.com/go/getflashplayer'></embed> " \
               " </object> " % (flash, flash)
-
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
-    path2 = r'https\:\/\/%s\:\d+\/%s\/request_pixel\.swf' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname))
-    path3 = r'https\:\/\/%s\:\d+\/%s\/pixel\.png' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname))
 
     assert netlog
     assert len(netlog) == 3
-    assert re.match(path1, netlog['1']['request']['url'])
-    assert netlog['1']['response']['status'] == 200
-    self.assertFalse(netlog['1']['error'])
-
-    assert re.match(path2, netlog['2']['request']['url'])
-    assert netlog['2']['response']['status'] == 200
-    self.assertFalse(netlog['2']['error'])
-
-    assert re.match(path3, netlog['3']['request']['url'])
-    assert netlog['3']['response']['status'] == 200
-    self.assertFalse(netlog['3']['error'])
+    for url, value in netlog.iteritems():
+      if url.endswith(str(creative_id) + '.html') or url.endswith('request_pixel.swf') or url.endswith('pixel.png'):
+        assert value['response']['status'] == 200
+        self.assertFalse(value['error'])
+      else:
+        self.fail()
 
   def test_browser_with_url_snippet(self):
     """
@@ -205,13 +192,15 @@ class BrowserTestCase(unittest.TestCase):
     """
     creative_id = 11111
     snippet = 'https://invalidurl/nocontent'
-
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = re.escape(snippet)
 
     assert netlog
     assert len(netlog) == 1
-    assert re.match(path1, netlog['1']['request']['url'])
+    for url, value in netlog.iteritems():
+      if url.endswith('nocontent'):
+        assert value['error']['errorCode'] == 3  # Host not found.
+      else:
+        self.fail()
 
   def test_browser_with_private_network(self):
     """
@@ -219,21 +208,26 @@ class BrowserTestCase(unittest.TestCase):
     When the request is aborted, PhantomJS will set 1 (Connection Refused Error) for the error code.
     """
     creative_id = 11111
-    snippet = '<img src="https://localhost:8888/pixel.png">'
+    snippet = '<img src="https://localhost/pixel.png">'
+
+    # Desable debug mode to check the private network access.
+    self.scanner.debug = False
 
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
-    path2 = r'https\:\/\/localhost\:8888\/pixel\.png'
 
     assert netlog
     assert len(netlog) == 2
-    assert re.match(path1, netlog['1']['request']['url'])
-    assert netlog['1']['response']['status'] == 200
-    self.assertFalse(netlog['1']['error'])
+    for url, value in netlog.iteritems():
+      if url.endswith(str(creative_id) + '.html'):
+        assert value['response']['status'] == 200
+        self.assertFalse(value['error'])
+      elif url.endswith('pixel.png'):
+        assert value['error']['errorCode'] == 999  # Private network access error
+      else:
+        self.fail()
 
-    assert re.match(path2, netlog['2']['request']['url'])
-    assert netlog['2']['response']['status'] is None
-    assert netlog['2']['error']['errorCode'] == 1  # ConnectionRefusedError
+    # Turn on the debug mode again for the next test case
+    self.scanner.debug = True
 
   def test_browser_with_private_network_with_ip_url(self):
     """
@@ -247,18 +241,17 @@ class BrowserTestCase(unittest.TestCase):
     self.scanner.debug = False
 
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
-    path2 = r'http\:\/\/172\.21\.78\.62\/pixel\.png'
 
     assert netlog
     assert len(netlog) == 2
-    assert re.match(path1, netlog['1']['request']['url'])
-    assert netlog['1']['response']['status'] == 200
-    self.assertFalse(netlog['1']['error'])
-
-    assert re.match(path2, netlog['2']['request']['url'])
-    assert netlog['2']['response']['status'] is None
-    assert netlog['2']['error']['errorCode'] == 301  # ProtocolUnknownError
+    for url, value in netlog.iteritems():
+      if url.endswith(str(creative_id) + '.html'):
+        assert value['response']['status'] == 200
+        self.assertFalse(value['error'])
+      elif url.endswith('pixel.png'):
+        assert value['error']['errorCode'] == 999  # Private network access error
+      else:
+        self.fail()
 
     # Turn on the debug mode again for the next test case
     self.scanner.debug = True

@@ -14,6 +14,7 @@
 Class that defines issue types.
 """
 
+
 class IssueType(object):
   """
   Class that represents issue types.

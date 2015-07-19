@@ -1,12 +1,8 @@
---allow-external PyXML
---allow-unverified PyXML
---allow-external ElementTree
---allow-unverified ElementTree
---allow-external cElementTree
---allow-unverified cElementTree
-
-lxml
+argparse
 cssselect
-adspygoogle==1.1.6
+googleads>=3.0.0
+lxml
+nose
 SQLAlchemy>=0.9.4
 requests==2.2.1
+requests[security]
