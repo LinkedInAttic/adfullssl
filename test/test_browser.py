@@ -143,7 +143,7 @@ class BrowserTestCase(unittest.TestCase):
       else:
         self.fail()
 
-  def test_brlwser_with_no_external_request(self):
+  def test_browser_with_no_external_request(self):
     """
     Test if the browser does not make unintended requests.
     """
@@ -241,8 +241,6 @@ class BrowserTestCase(unittest.TestCase):
     self.scanner.debug = False
 
     netlog = self._browse_creative(creative_id, snippet)
-    path1 = r'https\:\/\/%s\:\d+\/%s\/%s\.html' % (re.escape(self.hostname), re.escape(self.scanner.workspace.dirname), creative_id)
-    path2 = r'http\:\/\/172\.21\.78\.62\/pixel\.png'
 
     assert netlog
     assert len(netlog) == 2

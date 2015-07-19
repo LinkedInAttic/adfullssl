@@ -164,6 +164,7 @@ class BrowserHost(threading.Thread):
     command.extend(['--url', url_obj['url']])
     command.extend(['--log-file', log_file])
     command.extend(['--debug', 'true' if self.debug else 'false'])
+    command.extend(['--iplookup-url', url_obj['iplookup_url']])
     if self.cookie_dir:
       command.extend(['--cookie-dir', self.cookie_dir])
     return command
@@ -268,6 +269,7 @@ class BrowserController(object):
             'url': '%s://%s:%d/%s' % (self.protocol, self.hostname, port, save_file),
             'hosted_locally': 'true'
           }
+        url_obj['iplookup_url'] = '%s://%s:%d/iplookup' % (self.protocol, self.hostname, port)
         url_dict[str(creative.creative_id)] = url_obj
     return url_dict
 

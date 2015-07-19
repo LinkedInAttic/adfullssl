@@ -18,6 +18,28 @@ import ssl
 import threading
 import BaseHTTPServer
 import SimpleHTTPServer
+import socket
+import urlparse
+
+class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+
+  def do_GET(self):
+    if self.path.startswith('/iplookup'):
+      ip = ''
+      query = urlparse.urlparse(self.path).query
+      if query:
+        params = urlparse.parse_qs(query)
+        if params and 'url' in params:
+          hostname = urlparse.urlparse(params['url'][0]).hostname
+          if hostname:
+            ip = socket.gethostbyname(hostname)
+      self.send_response(200)
+      self.send_header('Access-Control-Allow-Origin', '*')
+      self.send_header('Content-type', 'application/json')
+      self.end_headers()
+      self.wfile.write('{"ip":"%s"}' % ip)
+    else:
+      SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
 
 class Server(threading.Thread):
@@ -39,7 +61,7 @@ class Server(threading.Thread):
     self.port = port
     self.certificate = certificate
     self.privatekey = privatekey
-    self.httpd = BaseHTTPServer.HTTPServer(('', port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+    self.httpd = BaseHTTPServer.HTTPServer(('', port), Handler)
     if protocol == 'https':
       self.httpd.socket = ssl.wrap_socket(self.httpd.socket, certfile=certificate, keyfile=privatekey, server_side=True)
 
